@@ -106,7 +106,10 @@ struct iperf_interval_results
     double    jitter;
     int64_t   outoforder_packets;
     int64_t   cnt_error;
-
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+    int64_t   interval_chain_hash_cnt_error;
+    int64_t   chain_hash_cnt_error;
+#endif
     int omitted;
 #if (defined(linux) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)) && \
 	defined(TCP_INFO)
@@ -231,7 +234,11 @@ struct iperf_stream
     int64_t   cnt_error;
     int64_t   omitted_cnt_error;
     uint64_t  target;
-
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+    int       pkt_metadata_sz;
+    int       chain_hash_size;
+    uint64_t  chain_hash_cnt_error;
+#endif
     struct sockaddr_storage local_addr;
     struct sockaddr_storage remote_addr;
 
@@ -350,6 +357,9 @@ struct iperf_test
     enum      debug_level debug_level;          /* -d option option - level of debug messages to show */
     int	      get_server_output;		/* --get-server-output */
     int	      udp_counters_64bit;		/* --use-64-bit-udp-counters */
+#if defined (ENABLE_PAYLOAD_VALIDATION)
+    int       udp_payload_validation;
+#endif
     int       forceflush; /* --forceflush - flushing output at every interval */
     int	      multisend;
     int	      repeating_payload;                /* --repeating-payload */

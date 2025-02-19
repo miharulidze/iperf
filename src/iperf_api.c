@@ -367,6 +367,14 @@ iperf_get_test_udp_counters_64bit(struct iperf_test *ipt)
     return ipt->udp_counters_64bit;
 }
 
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+int
+iperf_get_test_udp_payload_validation(struct iperf_test *ipt)
+{
+    return ipt->udp_payload_validation;
+}
+#endif
+
 int
 iperf_get_test_one_off(struct iperf_test *ipt)
 {
@@ -783,6 +791,14 @@ iperf_set_test_udp_counters_64bit(struct iperf_test *ipt, int udp_counters_64bit
     ipt->udp_counters_64bit = udp_counters_64bit;
 }
 
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+void
+iperf_set_test_udp_payload_validation(struct iperf_test *ipt, int udp_payload_validation)
+{
+    ipt->udp_payload_validation = udp_payload_validation;
+}
+#endif
+
 void
 iperf_set_test_one_off(struct iperf_test *ipt, int one_off)
 {
@@ -1137,6 +1153,9 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 	{"forceflush", no_argument, NULL, OPT_FORCEFLUSH},
 	{"get-server-output", no_argument, NULL, OPT_GET_SERVER_OUTPUT},
 	{"udp-counters-64bit", no_argument, NULL, OPT_UDP_COUNTERS_64BIT},
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+	{"udp-payload-validation", no_argument, NULL, OPT_UDP_PAYLOAD_VALIDATION},
+#endif
  	{"no-fq-socket-pacing", no_argument, NULL, OPT_NO_FQ_SOCKET_PACING},
 #if defined(HAVE_DONT_FRAGMENT)
 	{"dont-fragment", no_argument, NULL, OPT_DONT_FRAGMENT},
@@ -1599,6 +1618,11 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 	    case OPT_UDP_COUNTERS_64BIT:
 		test->udp_counters_64bit = 1;
 		break;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+	    case OPT_UDP_PAYLOAD_VALIDATION:
+		test->udp_payload_validation = 1;
+		break;
+#endif
 	    case OPT_NO_FQ_SOCKET_PACING:
 #if defined(HAVE_SO_MAX_PACING_RATE)
 		printf("Warning:  --no-fq-socket-pacing is deprecated\n");
@@ -2323,6 +2347,10 @@ send_parameters(struct iperf_test *test)
 	    cJSON_AddNumberToObject(j, "get_server_output", iperf_get_test_get_server_output(test));
 	if (test->udp_counters_64bit)
 	    cJSON_AddNumberToObject(j, "udp_counters_64bit", iperf_get_test_udp_counters_64bit(test));
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+	if (test->udp_payload_validation)
+	    cJSON_AddNumberToObject(j, "udp_payload_validation", iperf_get_test_udp_payload_validation(test));
+#endif
 	if (test->repeating_payload)
 	    cJSON_AddNumberToObject(j, "repeating_payload", test->repeating_payload);
 	if (test->zerocopy)
@@ -2443,6 +2471,10 @@ get_parameters(struct iperf_test *test)
 	    iperf_set_test_get_server_output(test, 1);
 	if ((j_p = iperf_cJSON_GetObjectItemType(j, "udp_counters_64bit", cJSON_Number)) != NULL)
 	    iperf_set_test_udp_counters_64bit(test, 1);
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+	if ((j_p = iperf_cJSON_GetObjectItemType(j, "udp_payload_validation", cJSON_Number)) != NULL)
+	    iperf_set_test_udp_payload_validation(test, 1);
+#endif
 	if ((j_p = iperf_cJSON_GetObjectItemType(j, "repeating_payload", cJSON_Number)) != NULL)
 	    test->repeating_payload = 1;
 	if ((j_p = iperf_cJSON_GetObjectItemType(j, "zerocopy", cJSON_Number)) != NULL)
@@ -2684,6 +2716,7 @@ get_results(struct iperf_test *test)
 			    } else {
 				if (sp->sender) {
 				    sp->jitter = jitter;
+                    printf("IM here\n");
 				    sp->cnt_error = cerror;
 				    sp->peer_packet_count = pcount;
 				    sp->result->bytes_received = bytes_transferred;
@@ -3526,15 +3559,24 @@ iperf_stats_callback(struct iperf_test *test)
 		temp.interval_packet_count = sp->packet_count;
 		temp.interval_outoforder_packets = sp->outoforder_packets;
 		temp.interval_cnt_error = sp->cnt_error;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+        temp.interval_chain_hash_cnt_error = sp->chain_hash_cnt_error;
+#endif
 	    } else {
 		temp.interval_packet_count = sp->packet_count - irp->packet_count;
 		temp.interval_outoforder_packets = sp->outoforder_packets - irp->outoforder_packets;
 		temp.interval_cnt_error = sp->cnt_error - irp->cnt_error;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+        temp.interval_chain_hash_cnt_error = sp->chain_hash_cnt_error - irp->interval_chain_hash_cnt_error;
+#endif
 	    }
 	    temp.packet_count = sp->packet_count;
 	    temp.jitter = sp->jitter;
 	    temp.outoforder_packets = sp->outoforder_packets;
 	    temp.cnt_error = sp->cnt_error;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+        temp.chain_hash_cnt_error = sp->chain_hash_cnt_error;
+#endif
 	}
 
 #if defined(HAVE_SCTP_H)
@@ -3695,7 +3737,9 @@ iperf_print_intermediate(struct iperf_test *test)
         double bandwidth;
         int64_t retransmits = 0;
         double start_time, end_time;
-
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+        int64_t corrupted_packets = 0;
+#endif
         int64_t total_packets = 0, lost_packets = 0;
         double avg_jitter = 0.0, lost_percent;
         int stream_must_be_sender = current_mode * current_mode;
@@ -3729,6 +3773,9 @@ iperf_print_intermediate(struct iperf_test *test)
                 } else {
                     total_packets += irp->interval_packet_count;
                     lost_packets += irp->interval_cnt_error;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+                    corrupted_packets += irp->interval_chain_hash_cnt_error;
+#endif
                     avg_jitter += irp->jitter;
                 }
             }
@@ -3794,10 +3841,11 @@ iperf_print_intermediate(struct iperf_test *test)
                         else {
                             lost_percent = 0.0;
                         }
-                        if (test->json_output)
+                        if (test->json_output) {
                             cJSON_AddItemToObject(json_interval, sum_name, iperf_json_printf("start: %f  end: %f  seconds: %f  bytes: %d  bits_per_second: %f  jitter_ms: %f  lost_packets: %d  packets: %d  lost_percent: %f  omitted: %b sender: %b", (double) start_time, (double) end_time, (double) irp->interval_duration, (int64_t) bytes, bandwidth * 8, (double) avg_jitter * 1000.0, (int64_t) lost_packets, (int64_t) total_packets, (double) lost_percent, test->omitting, stream_must_be_sender));
-                        else
-                            iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, end_time, ubuf, nbuf, avg_jitter * 1000.0, lost_packets, total_packets, lost_percent, test->omitting?report_omitted:"");
+                        } else {
+                            iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, end_time, ubuf, nbuf, avg_jitter * 1000.0, lost_packets, corrupted_packets, total_packets, lost_percent, test->omitting?report_omitted:"");
+                        }
                     }
                 }
             }
@@ -3851,10 +3899,11 @@ iperf_print_results(struct iperf_test *test)
 	            iperf_printf(test, "%s", report_bw_header);
 	    }
 	} else {
-	    if (test->bidirectional)
+	    if (test->bidirectional) {
 	        iperf_printf(test, "%s", report_bw_udp_header_bidir);
-	    else
+	    } else {
 	        iperf_printf(test, "%s", report_bw_udp_header);
+        }
 	}
     }
 
@@ -3884,6 +3933,9 @@ iperf_print_results(struct iperf_test *test)
     for (current_mode = lower_mode; current_mode <= upper_mode; ++current_mode) {
         cJSON *json_summary_stream = NULL;
         int64_t total_retransmits = 0;
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+        int64_t corrupted_packets = 0;
+#endif
         int64_t total_packets = 0, lost_packets = 0;
         int64_t sender_packet_count = 0, receiver_packet_count = 0; /* for this stream, this interval */
         int64_t sender_omitted_packet_count = 0, receiver_omitted_packet_count = 0; /* for this stream, this interval */
@@ -3991,6 +4043,9 @@ iperf_print_results(struct iperf_test *test)
                     total_packets += (packet_count - sp->omitted_packet_count);
                     sender_total_packets += (sender_packet_count - sender_omitted_packet_count);
                     receiver_total_packets += (receiver_packet_count - receiver_omitted_packet_count);
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+                    corrupted_packets += sp->chain_hash_cnt_error;
+#endif
                     lost_packets += sp->cnt_error;
                     if (sp->omitted_cnt_error > -1)
                          lost_packets -= sp->omitted_cnt_error;
@@ -4072,7 +4127,7 @@ iperf_print_results(struct iperf_test *test)
                                 iperf_printf(test, report_sender_not_available_format, sp->socket);
                         }
                         else {
-                            iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, start_time, sender_time, ubuf, nbuf, 0.0, (int64_t) 0, (sender_packet_count - sender_omitted_packet_count), (double) 0, report_sender);
+                            iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, start_time, sender_time, ubuf, nbuf, 0.0, (int64_t) 0, (int64_t) 0, (sender_packet_count - sender_omitted_packet_count), (double) 0, report_sender);
                         }
                         if ((sp->outoforder_packets - sp->omitted_outoforder_packets) > 0)
                           iperf_printf(test, report_sum_outoforder, mbuf, start_time, sender_time, (sp->outoforder_packets - sp->omitted_outoforder_packets));
@@ -4142,7 +4197,7 @@ iperf_print_results(struct iperf_test *test)
                         }
                         else {
                             if (sp->omitted_cnt_error > -1) {
-                                iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, start_time, receiver_time, ubuf, nbuf, sp->jitter * 1000.0, (sp->cnt_error - sp->omitted_cnt_error), (receiver_packet_count - receiver_omitted_packet_count), lost_percent, report_receiver);
+                                iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, start_time, receiver_time, ubuf, nbuf, sp->jitter * 1000.0, (sp->cnt_error - sp->omitted_cnt_error), sp->chain_hash_cnt_error, (receiver_packet_count - receiver_omitted_packet_count), lost_percent, report_receiver);
                             } else {
                                 iperf_printf(test, report_bw_udp_format_no_omitted_error, sp->socket, mbuf, start_time, receiver_time, ubuf, nbuf, sp->jitter * 1000.0, (receiver_packet_count - receiver_omitted_packet_count), report_receiver);
                             }
@@ -4261,7 +4316,7 @@ iperf_print_results(struct iperf_test *test)
                      */
                     if (! (test->role == 's' && !stream_must_be_sender) ) {
                         unit_snprintf(ubuf, UNIT_LEN, (double) total_sent, 'A');
-                        iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, sender_time, ubuf, nbuf, 0.0, (int64_t) 0, sender_total_packets, 0.0, report_sender);
+                        iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, sender_time, ubuf, nbuf, 0.0, (int64_t) 0, (int64_t) 0, sender_total_packets, 0.0, report_sender);
                     }
                     if (! (test->role == 's' && stream_must_be_sender) ) {
 
@@ -4274,7 +4329,7 @@ iperf_print_results(struct iperf_test *test)
                             bandwidth = 0.0;
                         }
                         unit_snprintf(nbuf, UNIT_LEN, bandwidth, test->settings->unit_format);
-                        iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, receiver_time, ubuf, nbuf, avg_jitter * 1000.0, lost_packets, receiver_total_packets, lost_percent, report_receiver);
+                        iperf_printf(test, report_sum_bw_udp_format, mbuf, start_time, receiver_time, ubuf, nbuf, avg_jitter * 1000.0, lost_packets, corrupted_packets, receiver_total_packets, lost_percent, report_receiver);
                     }
                 }
             }
@@ -4487,10 +4542,11 @@ print_interval_results(struct iperf_test *test, struct iperf_stream *sp, cJSON *
 	    else {
 		lost_percent = 0.0;
 	    }
-	    if (test->json_output)
+	    if (test->json_output) {
 		cJSON_AddItemToArray(json_interval_streams, iperf_json_printf("socket: %d  start: %f  end: %f  seconds: %f  bytes: %d  bits_per_second: %f  jitter_ms: %f  lost_packets: %d  packets: %d  lost_percent: %f  omitted: %b sender: %b", (int64_t) sp->socket, (double) st, (double) et, (double) irp->interval_duration, (int64_t) irp->bytes_transferred, bandwidth * 8, (double) irp->jitter * 1000.0, (int64_t) irp->interval_cnt_error, (int64_t) irp->interval_packet_count, (double) lost_percent, irp->omitted, sp->sender));
-	    else
-		iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, st, et, ubuf, nbuf, irp->jitter * 1000.0, irp->interval_cnt_error, irp->interval_packet_count, lost_percent, irp->omitted?report_omitted:"");
+	    } else {
+		iperf_printf(test, report_bw_udp_format, sp->socket, mbuf, st, et, ubuf, nbuf, irp->jitter * 1000.0, irp->interval_cnt_error, irp->chain_hash_cnt_error, irp->interval_packet_count, lost_percent, irp->omitted?report_omitted:"");
+        }
 	}
     }
 
@@ -4633,6 +4689,17 @@ iperf_new_stream(struct iperf_test *test, int s, int sender)
         free(sp);
         return NULL;
     }
+
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+    // chain hash is stored in the payload of the packet
+    // we need to account for other data stored in UDP test, e.g., timestamps and psn (see iperf_udp.c)
+    sp->pkt_metadata_sz = sizeof(uint32_t) + sizeof(uint32_t) + (test->udp_counters_64bit ? sizeof(uint64_t) : sizeof(uint32_t));
+    sp->chain_hash_size = (test->settings->blksize - sp->pkt_metadata_sz) / sizeof(uint64_t);
+    if (test->debug_level >= DEBUG_LEVEL_INFO) {
+        fprintf(stderr, "PAYLOAD VALIDATION - chain_hash_size %d\n", sp->chain_hash_size);
+    }
+#endif
+
     iperf_add_stream(test, sp);
 
     return sp;

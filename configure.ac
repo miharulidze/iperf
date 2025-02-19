@@ -61,6 +61,14 @@ AC_ARG_ENABLE([profiling],
     AS_HELP_STRING([--enable-profiling], [Enable iperf3 profiling binary]))
 AM_CONDITIONAL([ENABLE_PROFILING], [test x$enable_profiling = xyes])
 
+# Check if enable UDP validation
+AC_ARG_ENABLE([payload-validation],
+    AS_HELP_STRING([--enable-payload-validation], [Enable iperf3 UDP payload validation]))
+AM_CONDITIONAL([ENABLE_PAYLOAD_VALIDATION], [test x$enable_payload_validation = xyes])
+if test "x$enable_payload_validation" = "xyes"; then
+    AC_DEFINE([ENABLE_PAYLOAD_VALIDATION], [1], [Enable UDP payload validation.])
+fi
+
 # Check for the math library (needed by cjson on some platforms)
 AC_SEARCH_LIBS(floor, [m], [], [
 echo "floor()"

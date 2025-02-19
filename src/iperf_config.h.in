@@ -1,5 +1,8 @@
 /* src/iperf_config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Enable UDP payload validation. */
+#undef ENABLE_PAYLOAD_VALIDATION
+
 /* Define to 1 if you have the 'clock_gettime' function. */
 #undef HAVE_CLOCK_GETTIME
 

@@ -210,6 +210,9 @@ const char usage_longstr[] = "Usage: iperf3 [-s|-c host] [options]\n"
                            "  --extra-data str          data string to include in client and server JSON\n"
                            "  --get-server-output       get results from server\n"
                            "  --udp-counters-64bit      use 64-bit counters in UDP test packets\n"
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+                           "  --udp-payload-validation  enable UDP packet payload validation using chain hash\n"
+#endif
                            "  --repeating-payload       use repeating pattern in payload, instead of\n"
                            "                            randomized payload (like in iperf2)\n"
 #if defined(HAVE_DONT_FRAGMENT)
@@ -371,8 +374,13 @@ const char report_bw_retrans_cwnd_header[] =
 const char report_bw_retrans_cwnd_header_bidir[] =
 "[ ID][Role] Interval           Transfer     Bitrate         Retr  Cwnd\n";
 
+#if !defined(ENABLE_PAYLOAD_VALIDATION)
 const char report_bw_udp_header[] =
 "[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams\n";
+#else
+const char report_bw_udp_header[] =
+"[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Corrupt/Total Datagrams\n";
+#endif
 
 const char report_bw_udp_header_bidir[] =
 "[ ID][Role] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams\n";
@@ -392,8 +400,13 @@ const char report_bw_retrans_format[] =
 const char report_bw_retrans_cwnd_format[] =
 "[%3d]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %3ld   %ss       %s\n";
 
+#if !defined(ENABLE_PAYLOAD_VALIDATION)
 const char report_bw_udp_format[] =
 "[%3d]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %" PRId64 "/%" PRId64 " (%.2g%%)  %s\n";
+#else
+const char report_bw_udp_format[] =
+"[%3d]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %" PRId64 "/%" PRId64 "/%" PRId64 " (%.2g%%)  %s\n";
+#endif
 
 const char report_bw_udp_format_no_omitted_error[] =
 "[%3d]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  Unknown/%" PRId64 "  %s\n";
@@ -410,8 +423,13 @@ const char report_sum_bw_format[] =
 const char report_sum_bw_retrans_format[] =
 "[SUM]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %3"PRId64"             %s\n";
 
+#if !defined(ENABLE_PAYLOAD_VALIDATION)
 const char report_sum_bw_udp_format[] =
 "[SUM]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %" PRId64 "/%" PRId64 " (%.2g%%)  %s\n";
+#else
+const char report_sum_bw_udp_format[] =
+"[SUM]%s %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %" PRId64 "/%" PRId64 "/%" PRId64 " (%.2g%%)  %s\n";
+#endif
 
 const char report_sum_bw_udp_sender_format[] =
 "[SUM]%s %6.2f-%-6.2f sec  %ss  %ss/sec %s %" PRId64 "  %s\n";

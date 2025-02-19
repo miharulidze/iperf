@@ -665,6 +665,8 @@ PTHREAD_CXX
 PTHREAD_CC
 ax_pthread_config
 CPP
+ENABLE_PAYLOAD_VALIDATION_FALSE
+ENABLE_PAYLOAD_VALIDATION_TRUE
 ENABLE_PROFILING_FALSE
 ENABLE_PROFILING_TRUE
 MAINT
@@ -809,6 +811,7 @@ with_sysroot
 enable_libtool_lock
 enable_maintainer_mode
 enable_profiling
+enable_payload_validation
 with_sctp
 with_openssl
 '
@@ -1470,6 +1473,8 @@ Optional Features:
                           enable make rules and dependencies not useful (and
                           sometimes confusing) to the casual installer
   --enable-profiling      Enable iperf3 profiling binary
+  --enable-payload-validation
+                          Enable iperf3 UDP payload validation
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -14846,6 +14851,27 @@ else
 fi
 
 
+# Check if enable UDP validation
+# Check whether --enable-payload-validation was given.
+if test ${enable_payload_validation+y}
+then :
+  enableval=$enable_payload_validation;
+fi
+
+ if test x$enable_payload_validation = xyes; then
+  ENABLE_PAYLOAD_VALIDATION_TRUE=
+  ENABLE_PAYLOAD_VALIDATION_FALSE='#'
+else
+  ENABLE_PAYLOAD_VALIDATION_TRUE='#'
+  ENABLE_PAYLOAD_VALIDATION_FALSE=
+fi
+
+if test "x$enable_payload_validation" = "xyes"; then
+
+printf "%s\n" "#define ENABLE_PAYLOAD_VALIDATION 1" >>confdefs.h
+
+fi
+
 # Check for the math library (needed by cjson on some platforms)
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing floor" >&5
 printf %s "checking for library containing floor... " >&6; }
@@ -17580,6 +17606,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_PROFILING_TRUE}" && test -z "${ENABLE_PROFILING_FALSE}"; then
   as_fn_error $? "conditional \"ENABLE_PROFILING\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_PAYLOAD_VALIDATION_TRUE}" && test -z "${ENABLE_PAYLOAD_VALIDATION_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_PAYLOAD_VALIDATION\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

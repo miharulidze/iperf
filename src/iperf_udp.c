@@ -47,6 +47,31 @@
 #include "net.h"
 #include "cjson.h"
 
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+
+static inline void chain_hash_set(uint64_t *buf, size_t n, uint64_t seed) {
+    *buf = htobe64(XXH3_64bits_withSeed(&seed, sizeof(uint64_t), seed));
+    for (size_t i = 1; i < n; i++) {
+        uint64_t tmp = be64toh(buf[i - 1]);
+        buf[i] = htobe64(XXH3_64bits_withSeed(&tmp, sizeof(uint64_t), seed));
+    }
+}
+
+static inline int chain_hash_check(uint64_t *buf, size_t n, uint64_t seed) {
+    uint64_t val = XXH3_64bits_withSeed(&seed, sizeof(uint64_t), seed);
+    for (size_t i = 0; i < n; i++) {
+        if (be64toh(buf[i]) != val) {
+            return 1;
+        }
+        val = XXH3_64bits_withSeed(&val, sizeof(uint64_t), seed);
+    }
+    return 0;
+}
+
+#endif
+
 /* iperf_udp_recv
  *
  * receives the data for UDP
@@ -111,7 +136,7 @@ iperf_udp_recv(struct iperf_stream *sp)
 	}
 
 	if (test->debug_level >= DEBUG_LEVEL_DEBUG)
-	    fprintf(stderr, "pcount %" PRIu64 " packet_count %" PRIu64 "\n", pcount, sp->packet_count);
+	    fprintf(stderr, "pcount %" PRIu64 " packet_count %" PRIu64 " read_size=%d\n", pcount, sp->packet_count, r);
 
 	/*
 	 * Try to handle out of order packets.  The way we do this
@@ -158,6 +183,20 @@ iperf_udp_recv(struct iperf_stream *sp)
 	    if (test->debug_level >= DEBUG_LEVEL_INFO)
 		fprintf(stderr, "OUT OF ORDER - received packet %" PRIu64 " but expected sequence %" PRIu64 " on stream %d\n", pcount, sp->packet_count + 1, sp->socket);
 	}
+
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+    if (test->udp_payload_validation) {
+        if (chain_hash_check((uint64_t *)(sp->buffer + sp->pkt_metadata_sz), sp->chain_hash_size, pcount)) {
+            if (test->debug_level >= DEBUG_LEVEL_INFO) {
+                fprintf(stderr, "PAYLOAD VALIDATION FAILED - received packet %" PRIu64 "\n", pcount);
+            }
+            sp->cnt_error++; // make sure that this contributes to the loss calculation
+            sp->chain_hash_cnt_error++;
+        } else if (test->debug_level >= DEBUG_LEVEL_DEBUG) {
+            fprintf(stderr, "PAYLOAD VALIDATION SUCCEED\n");
+        }
+    }
+#endif
 
 	/*
 	 * jitter measurement
@@ -236,6 +275,12 @@ iperf_udp_send(struct iperf_stream *sp)
 	memcpy(sp->buffer+8, &pcount, sizeof(pcount));
 
     }
+
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+    if (sp->test->udp_payload_validation) {
+        chain_hash_set((uint64_t *)(sp->buffer + sp->pkt_metadata_sz), sp->chain_hash_size, sp->packet_count);
+    }
+#endif
 
     r = Nwrite(sp->socket, sp->buffer, size, Pudp);
 

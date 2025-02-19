@@ -101,6 +101,9 @@ typedef atomic_uint_fast64_t atomic_iperf_size_t;
 #define OPT_JSON_STREAM 28
 #define OPT_SND_TIMEOUT 29
 #define OPT_USE_PKCS1_PADDING 30
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+#define OPT_UDP_PAYLOAD_VALIDATION 31
+#endif
 
 /* states */
 #define TEST_START 1
@@ -205,6 +208,9 @@ void	iperf_set_test_unit_format(struct iperf_test *ipt, char unit_format);
 void	iperf_set_test_bind_address( struct iperf_test* ipt, const char *bind_address );
 void    iperf_set_test_bind_dev(struct iperf_test *ipt, const char *bnd_dev);
 void	iperf_set_test_udp_counters_64bit( struct iperf_test* ipt, int udp_counters_64bit );
+#if defined(ENABLE_PAYLOAD_VALIDATION)
+void	iperf_set_test_udp_payload_validation( struct iperf_test* ipt, int udp_payload_validation );
+#endif
 void	iperf_set_test_one_off( struct iperf_test* ipt, int one_off );
 void    iperf_set_test_tos( struct iperf_test* ipt, int tos );
 void	iperf_set_test_extra_data( struct iperf_test* ipt, const char *dat );
